@@ -15,9 +15,11 @@
 use std::io::*;
 use std::io::net::ip::{SocketAddr};
 use std::{str};
+use std::repr;
 
 static IP: &'static str = "127.0.0.1";
 static PORT:        int = 4414;
+static mut count:  int = 0;
 
 fn main() {
     let addr = from_str::<SocketAddr>(format!("{:s}:{:d}", IP, PORT)).unwrap();
@@ -30,6 +32,9 @@ fn main() {
         do spawn {
             let mut stream = stream;
             
+            unsafe{
+                count+=1;
+            }
             match stream {
                 Some(ref mut s) => {
                              match s.peer_name() {
@@ -45,18 +50,25 @@ fn main() {
             let request_str = str::from_utf8(buf);
             println(format!("Received request :\n{:s}", request_str));
             
-            let response: ~str = 
-                ~"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n
-                 <doctype !html><html><head><title>Hello, Rust!</title>
-                 <style>body { background-color: #111; color: #FFEEAA }
-                        h1 { font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm red}
-                        h2 { font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm green}
-                 </style></head>
-                 <body>
-                 <h1>Greetings, Krusty!</h1>
-                 </body></html>\r\n";
-            stream.write(response.as_bytes());
+            unsafe{
+               let response: ~str = format!(
+                   "HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n
+                    <doctype !html><html><head><title>Hello, Rust!</title>
+                    <style>body \\{ background-color: \\#111; color: \\#ff4acf \\}
+                           h1 \\{ font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm red\\}
+                           h2 \\{ font-size:2cm; text-align: center; color: black; text-shadow: 0 0 4mm green\\}
+                    </style></head>
+                    <body>
+                    <h1>Greetings, Krusty!</h1>
+                    <h2>Visitor cout: {} </h2>
+                    </body></html>\r\n", count); 
+                stream.write(response.as_bytes());
+                }
+           
+            
+
             println!("Connection terminates.");
+            
         }
     }
 }
