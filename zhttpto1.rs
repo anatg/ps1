@@ -40,12 +40,12 @@
                                },
                     None => ()
                 }
-                
                 let mut buf = [0, ..500];
                 stream.read(buf);
                 let request_str = str::from_utf8(buf);
                 println(format!("Received request :\n{:s}", request_str));
                 unsafe{count+=1;}
+                
 
                 let mut lines: ~[&str] = request_str.split_str(" ").collect();
                 let mut path = lines.remove(1).clone();
@@ -65,28 +65,37 @@
                             stream.write(response.as_bytes());
                     }
                 else{
+
                     let mut fp = Path::new(path.clone().slice_from(1));
-                    //println(path.clone().slice_from(1));
-                    match (File::open(&fp)){
-                        Some(mut file)=> {
-                            if fp.clone().ends_with(".html"){
-                                let file_data: ~[u8] = file.read_to_end();
-                                stream.write(file_data);
+                            if (lines.len() > 3 &&
+                                    lines[0] == "GET" &&
+                                    lines[1].len() > 1 &&
+                                    lines[2] == "HTTP/1.1") {
+                                if lines[1].ends_with(".html") {
+                                    match result(|| File::open(&fp)) {
+                                        result(mut file) => {
+                                            let file_data: ~[u8] = file.read_to_end();
+                                            stream.write(file_data);
+                                        } ,
+                                        Err(e) => {
+                                            if e.kind == PermissionDenied {
+                                                stream.write("403 Error".as_bytes());
+                                            } else if e.kind == FileNotFound {
+                                                stream.write("404 Error".as_bytes());
+                                            } else {
+                                                stream.write("io error".as_bytes());
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    stream.write("403".as_bytes()); 
+                                }
                             }
-                            else{
-                                let response: ~str = format!(
-                                    "HTTP/1.1 403 OK\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n
-                                <doctype !html><html><head><h1>HTTP Error 403 Forbidden</h1></html>");
-                                stream.write(response.as_bytes());
-                            }
-                        }
-                        None => {
-                            println("failed to read");
-                        }
+
                     }
+                println!("Connection terminates.");
                 }
-            }
-            println!("Connection terminates.");
+            
                 
             }
         }
